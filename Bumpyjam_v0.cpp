@@ -152,18 +152,18 @@ void inpart(int n ,long int MCpoints, int * in, double * x, double * y, double *
     }
 }
 
-void nmersProperty(int n, int Nc, double * m, double * I, double * x_shape, double * y_shape, double Rl, double Rs)
+void nmersProperty(int n, int Nc, int long MCpoints, double * xlist, double * ylist, double * x, double * y, int * in, double * m, double * I, double * x_shape, double * y_shape, double Rl, double Rs)
 {
     default_random_engine generator;
     uniform_real_distribution<double> distribution(0.0,1.0);
 
-    long int MCpoints = 1e5;
-    double * xlist = new double[n];
-    double * ylist = new double[n];
+    // long int MCpoints = 1e5;
+    // double * xlist = new double[n];
+    // double * ylist = new double[n];
     // double * Rlist = new double[n];
-    double * x = new double[MCpoints];
-    double * y = new double[MCpoints];
-    int * in = new int[MCpoints];
+    // double * x = new double[MCpoints];
+    // double * y = new double[MCpoints];
+    // int * in = new int[MCpoints];
     double Lx_mc, Ly_mc, xmin, ymin, Atemp, Itemp, temp, count, sum, xcm, ycm, xsum, ysum, temp_max, temp_min;
 
     // first deal with small particles
@@ -269,7 +269,7 @@ void nmersProperty(int n, int Nc, double * m, double * I, double * x_shape, doub
         I[i] = Itemp;
     }
 
-    delete[] xlist, ylist, x, y, in;
+    // delete[] xlist, ylist, x, y, in;
 }
 
 double average(int N, double * numList)
@@ -309,7 +309,7 @@ double arrsumf(int N, double * arr)
 void CMVelocityZeroing(int N, double * m, double * vx)
 {
     double M = 0;
-    double P = 0;;
+    double P = 0;
     for (int i = 0; i < N; i++)
     {
         M += m[i];
@@ -645,18 +645,26 @@ double * Fx, double * Fy, double * T, int * Cn, double K, double * R_eff, double
 }
 
 double bumpy_2D_comp_VV(int Nc, int N, int n, double gam, double * Dn, double * r_shape, double * th_shape, double * m, double * I, double * R_eff, double * x, double * y, 
-double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double * vy, double * w, double * ax_old, double * ay_old, double * alph_old, double dt, long int Nt, double K, double Lx, double Ly, double Utol, double dphi)
+double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double * vy, double * w, double * ax, double * ay, double * alph, double * ax_old, double * ay_old, double * alph_old, double dt, long int Nt, double K, double Lx, double Ly, double Utol, double dphi)
 {
-    double * ax = new double[Nc];
-    double * ay = new double[Nc];
-    double * alph = new double[Nc];
+    // double * ax = new double[Nc];
+    // double * ay = new double[Nc];
+    // double * alph = new double[Nc];
 
     double phitot, rsc, U, im, dt2, half_dt2, Ek_trans, Ek_rot, Ek_tot;
-    int i, j, nt;
+    int i, j;
+    long int nt;
+    // zeroing initial acceleration
+    for (i=0;i<Nc;i++)
+    {
+        ax[i] = 0.0;
+        ay[i] = 0.0;
+        alph[i] = 0.0;
+    }
     dt2 = dt * dt;
-    half_dt2 = dt2 / 2;
+    half_dt2 = dt2 / 2.0;
     phitot = arrsumf(Nc, m) / (Lx * Ly);
-    rsc = sqrt(1 + dphi / phitot);
+    rsc = sqrt(1.0 + dphi / phitot);
     // Grow
     for (i=0;i<Nc;i++)
     {
@@ -673,11 +681,13 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
     // FIRE COEFF. //
     int nfiremin, cut;
     double finc, fdec, astart, a, fa, dtmax, P;
+    bool fire = true;
+    // bool fire = false;
     nfiremin = 50;
     finc = 1.1;
     fdec = 0.5;
     astart = 0.1;
-    a = astart;
+    a = 0.1;
     fa = 0.99;
     dtmax = 10.0 * dt;
     cut = 1;
@@ -717,11 +727,12 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
         U = bumpy_2D_Force(Nc,N,n,x,y,th,r_shape,th_shape,Fx,Fy,T,Cn,K,R_eff,Dn,Lx,Ly,gam);
 
         // Damping
-        /*
-        for (int i = 0; i < Nc; i++) Fx[i] = Fx[i] - B * 2 * sqrt(m[i]/pi) * vx[i];
-        for (int i = 0; i < Nc; i++) Fy[i] = Fy[i] - B * 2 * sqrt(m[i]/pi) * vy[i];
-        for (int i = 0; i < Nc; i++) T[i] = T[i] - B * 2 * sqrt(m[i]/pi) * w[i]; 
-        */
+        if (~fire)
+        {
+            for (int i = 0; i < Nc; i++) Fx[i] = Fx[i] - B * 2 * sqrt(m[i]/pi) * vx[i];
+            for (int i = 0; i < Nc; i++) Fy[i] = Fy[i] - B * 2 * sqrt(m[i]/pi) * vy[i];
+            for (int i = 0; i < Nc; i++) T[i] = T[i] - B * 2 * sqrt(m[i]/pi) * w[i]; 
+        }
 
         getAcceleration(Nc, Fx, ax, m);
         getAcceleration(Nc, Fy, ay, m);
@@ -729,31 +740,34 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
 
         // FIRE
         ///*
-        P = 0;
-        for (int i=0;i<Nc;i++)
-        {
-            P += (vx[i] * Fx[i] + vy[i] * Fy[i] + w[i] * T[i]);
-        }
-        correctionFIRE(Nc, vx, Fx, a);
-        correctionFIRE(Nc, vy, Fy, a);
-        correctionFIRE(Nc, w, T, a);
-        if (P < 0)
+        P = 0.0;
+        if (fire)
         {
             for (int i=0;i<Nc;i++)
             {
-                vx[i] = 0;
-                vy[i] = 0;
-                w[i] = 0;
-                cut = nt;
-                dt = dt * fdec;
-                a = astart;
+                P += (vx[i] * Fx[i] + vy[i] * Fy[i] + w[i] * T[i]);
             }
-        }
-        else if (P >= 0 && nt - cut > nfiremin)
-        {
-            if (dt * finc < dtmax) dt = dt * finc;
-            else dt = dtmax;
-            a = a * fdec;
+            correctionFIRE(Nc, vx, Fx, a);
+            correctionFIRE(Nc, vy, Fy, a);
+            correctionFIRE(Nc, w, T, a);
+            if (P < 0)
+            {
+                for (int i=0;i<Nc;i++)
+                {
+                    vx[i] = 0.0;
+                    vy[i] = 0.0;
+                    w[i] = 0.0;
+                    cut = nt;
+                    dt = dt * fdec;
+                    a = astart;
+                }
+            }
+            else if (P >= 0 && nt - cut > nfiremin)
+            {
+                if (dt * finc < dtmax) dt = dt * finc;
+                else dt = dtmax;
+                a = a * fdec;
+            }
         }
         //*/
         VV_vel_integration(Nc, vx, ax, ax_old, dt);
@@ -764,13 +778,17 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
         copyAcceleration(Nc, ay, ay_old);
         copyAcceleration(Nc, alph, alph_old);
 
-        NonContactZeroing(Nc, vx, Cn);
-        NonContactZeroing(Nc, vy, Cn);
-        NonContactZeroing(Nc, w, Cn); 
-        
-        if (nt > 0 && Ek_tot < 1e-20) 
+        /*if (~fire)
         {
-            // printf("Break by Ek.\n");
+            NonContactZeroing(Nc, vx, Cn);
+            NonContactZeroing(Nc, vy, Cn);
+            NonContactZeroing(Nc, w, Cn); 
+        }
+        */
+        if (nt > 0 && Ek_tot < 1e-24) 
+        {
+            // printf("Break by Ek=%e at %ld.\n",Ek_tot,nt);
+            // print("\n");
             break;
         }
 
@@ -778,23 +796,14 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
     }
 
     // printf("U=%e.\n",U);
-    delete[] ax, ay, alph;
+    // delete[] ax, ay, alph;
     return U;
 }
 
 int main(int argc, char **argv)
 {
-    int Nc;// = 6;
-    int n;// = 16; // n-mers
-    double mu;// = 1.0;
-    double phi_target;// = 1.00;
-    int seed;// = 1;
-
-    Nc = stoi(argv[1]);
-    n = stoi(argv[2]);
-    mu = stod(argv[3]);
-    phi_target = stod(argv[4]);
-    seed = stoi(argv[5]);
+    // TO COMPILE
+    // clang++ -std=c++11 -stdlib=libc++ Bumpyjam_v0.cpp 
 
     //Save output file
     string space = "_";
@@ -816,6 +825,18 @@ int main(int argc, char **argv)
 	strcpy(filechar, filename.c_str());
 	FILE *out = fopen(filechar, "w+");
     printf("File char is: %s\n", filechar);
+
+    int Nc;// = 6;
+    int n;// = 16; // n-mers
+    double mu;// = 1.0;
+    double phi_target;// = 1.00;
+    int seed;// = 1;
+
+    Nc = stoi(argv[1]);
+    n = stoi(argv[2]);
+    mu = stod(argv[3]);
+    phi_target = stod(argv[4]);
+    seed = stoi(argv[5]);
 
     double temp, U, dphi, dG, Utol, gam, phitot;
     int count, count_max, C;
@@ -852,8 +873,8 @@ int main(int argc, char **argv)
     double Lx = round(5 * G * sqrt(Nc) * (D + rad));
     double Ly = round(5 * G * sqrt(Nc) * (D + rad));
 
-    long int Nt = 1e6;
-    double N_per_coll = 20.0;
+    int long Nt = 1e6;
+    double N_per_coll = 100.0;
     double dt = 2.0 * pi * sqrt(1.0 / K) / N_per_coll;
 
     // set intermediate MD arrays
@@ -890,18 +911,32 @@ int main(int argc, char **argv)
     double * ax_old = new double[Nc];
     double * ay_old = new double[Nc];
     double * alph_old = new double[Nc];
+
+    // local MD arrays
+    double * ax = new double[Nc];
+    double * ay = new double[Nc];
+    double * alph = new double[Nc];
+
     // build nmers
     double * x_shape = new double [N];
     double * y_shape = new double [N];
     double * r_shape = new double [N];
     double * th_shape = new double [N];
+    // set nmer local variables
+    long int MCpoints = 1e5;
+    double * xlist = new double[n];
+    double * ylist = new double[n];
+    // double * Rlist = new double[n];
+    double * x_mc = new double[MCpoints];
+    double * y_mc = new double[MCpoints];
+    int * in_mc = new int[MCpoints];
 
     // stress tensor
     double * stress = new double [4];
     double P, Ptol;
 
-    for(int i = 0; i < Nc / 2; i++) R_eff[i] = D / 100.0;
-	for(int i = Nc / 2; i < Nc; i++) R_eff[i] = G / 100.0;
+    for(int i = 0; i < Nc / 2; i++) R_eff[i] = D / 0.1;
+	for(int i = Nc / 2; i < Nc; i++) R_eff[i] = G / 0.1;
     for(int i = 0; i < Nc / 2; i++) Dn[i] = D; // small
 	for(int i = Nc / 2; i < Nc; i++) Dn[i] = G; // big
 
@@ -914,7 +949,7 @@ int main(int argc, char **argv)
 	}while(anytouch(Nc, x, y, R_eff, Lx, Ly));//re-seed until no particles touch
 
     nmersBuild(n, Nc, G, xval, yval, x_shape, y_shape, r_shape, th_shape);
-    nmersProperty(n, Nc, m, I, x_shape, y_shape, G/2.0, D/2.0);
+    nmersProperty(n, Nc, MCpoints, xlist, ylist, x_mc, y_mc, in_mc, m, I, x_shape, y_shape, G/2.0, D/2.0);
     // printNmers(n, Nc, x_shape, y_shape, r_shape, th_shape);
     // printf("%e\n",-INFINITY);
     // printParticles(Nc, m, I);
@@ -969,12 +1004,12 @@ int main(int argc, char **argv)
             copy(y_shape, y_shape + N, y_shape0);
             copy(r_shape, r_shape + N, r_shape0);
             copy(th_shape, th_shape + N, th_shape0);
-            U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
+            U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax, ay, alph, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
             P = bumpy_2D_stress(Nc, N, n, x, y, th, r_shape, th_shape, Fx, Fy, stress, K, R_eff, Dn, Lx, Ly, gam);
         }
         else if (U > 2 * Utol && C >= (Nc - 1))
         {
-            dphi = -dphi / 2;
+            dphi = -fabs(dphi) / 2;
             // copy all inputs
             copy(Dn0, Dn0 + Nc, Dn);
             copy(R_eff0, R_eff0 + Nc, R_eff);
@@ -985,7 +1020,7 @@ int main(int argc, char **argv)
             copy(th0, th0 + Nc, th);
             copy(vx0, vx0 + Nc, vx);
             copy(vy0, vy0 + Nc, vy);
-            copy(w0, w0+ Nc, w);
+            copy(w0, w0 + Nc, w);
             copy(ax_old0, ax_old0 + Nc, ax_old);
             copy(ay_old0, ay_old0 + Nc, ay_old);
             copy(alph_old0, alph_old0 + Nc, alph_old);
@@ -993,7 +1028,7 @@ int main(int argc, char **argv)
             copy(y_shape0, y_shape0 + N, y_shape);
             copy(r_shape0, r_shape0 + N, r_shape);
             copy(th_shape0, th_shape0 + N, th_shape);
-            U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
+            U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax, ay, alph, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
             P = bumpy_2D_stress(Nc, N, n, x, y, th, r_shape, th_shape, Fx, Fy, stress, K, R_eff, Dn, Lx, Ly, gam);
         }
         temp = 0;
@@ -1005,8 +1040,17 @@ int main(int argc, char **argv)
         if (count % 1 == 0) printf("Step %d, phi=%1.7f, dphi=%e, C=%d, U/K/N=%e\n", count, phitot, dphi, C, U);
         if (count > count_max) break;
     }
-
+    
     fclose(out);
+
+    delete[] xval, yval, lengths;
+    delete[] Dn0, R_eff0, m0, I0, x0, y0, th0, vx0, vy0, w0, ax_old0, ay_old0, alph_old0;
+    delete[] x_shape0, y_shape0, r_shape0, th_shape0;
+    delete[] ax, ay, alph;
+    delete[] Dn, R_eff, m, I, x, y, th, vx, vy, w, ax_old, ay_old, alph_old;
+    delete[] x_shape, y_shape, r_shape, th_shape;
+    
+    delete[] xlist, ylist, x_mc, y_mc, in_mc;
 
     return 0;
 }
