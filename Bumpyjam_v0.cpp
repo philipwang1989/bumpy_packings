@@ -392,6 +392,21 @@ double getEk(int N, double * m, double * vx)
     return K;
 }
 
+// Calculate max Ek
+double getEk(int N, double * m, double * I, double * vx, double * vy, double * w)
+{
+    double * K = new double[N];
+    for (int i = 0; i < N; i++) K[i] = 0.0;
+    for (int i = 0; i < N; i++)
+    {
+        K[i] += (m[i] * vx[i] * vx[i] + m[i] * vy[i] * vy[i] + I[i] * w[i] * w[i])/2;
+    }
+    double Kmax = 0.0;
+    for (int i = 0; i < N; i++) if (K[i] > Kmax) Kmax = K[i];
+
+    return Kmax;
+}
+
 double bumpy_2D_shrjam_getU(int Nc, int N, int n, double * x, double * y, double * th, double * r_shape, double * th_shape,
 double K, double * R_eff, double * Dn, double Lx, double Ly, double gam)
 {
@@ -567,6 +582,7 @@ double * Fx, double * Fy, double * stress, double K, double * R_eff, double * Dn
             }
         }
     }
+    for (int i=0;i<4;i++) stress[i] /= (Lx * Ly);
     P = (stress[0] + stress[3]) / 2.0;
     return P;
 }
@@ -693,6 +709,7 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
     cut = 1;
 
     double B = 0.1;
+    double Kmax;
 
     nt = 0;
     while (U > 0 && nt < Nt)
@@ -713,11 +730,12 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
         CMVelocityZeroing(Nc, m, vy);
 
         // Ek
-        Ek_trans = getEk(Nc, m, vx);
-        Ek_trans = Ek_trans + getEk(Nc, m, vy);
-        Ek_rot = getEk(Nc, I, w);
-        Ek_tot = Ek_trans + Ek_rot;
-        Ek_tot = Ek_tot / Nc;
+        // Ek_trans = getEk(Nc, m, vx);
+        // Ek_trans = Ek_trans + getEk(Nc, m, vy);
+        // Ek_rot = getEk(Nc, I, w);
+        // Ek_tot = Ek_trans + Ek_rot;
+        // Ek_tot = Ek_tot / Nc;
+        Kmax = getEk(Nc, m, I, vx, vy, w);
 
         // first step in Verlet integration
         VV_pos_integration(Nc, x, vx, ax_old, dt, half_dt2);
@@ -766,10 +784,10 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
             {
                 if (dt * finc < dtmax) dt = dt * finc;
                 else dt = dtmax;
-                a = a * fdec;
+                a = a * fa;
             }
         }
-        //*/
+
         VV_vel_integration(Nc, vx, ax, ax_old, dt);
         VV_vel_integration(Nc, vy, ay, ay_old, dt);
         VV_vel_integration(Nc, w, alph, alph_old, dt);
@@ -778,16 +796,16 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
         copyAcceleration(Nc, ay, ay_old);
         copyAcceleration(Nc, alph, alph_old);
 
-        /*if (~fire)
+        if (~fire)
         {
             NonContactZeroing(Nc, vx, Cn);
             NonContactZeroing(Nc, vy, Cn);
             NonContactZeroing(Nc, w, Cn); 
         }
-        */
-        if (nt > 0 && Ek_tot < 1e-24) 
+        
+        if (nt > 0 && Kmax < 1e-28) 
         {
-            // printf("Break by Ek=%e at %ld.\n",Ek_tot,nt);
+            // printf("Break by Ek=%e at %ld.\n",Kmax,nt);
             // print("\n");
             break;
         }
@@ -809,6 +827,9 @@ int main(int argc, char **argv)
     string space = "_";
 	string fileext = ".out";
 
+    string debugfile = "";
+    string debugfileext = ".xy";
+
     //string filename = "E:/Dropbox/Yale/C++/ShearJam/output_"; // Windows
     string filename = "/Users/philipwang/Dropbox/Yale/C++/Bumpy/output_"; // Mac
     filename.append(argv[1]);
@@ -820,11 +841,17 @@ int main(int argc, char **argv)
 	filename.append(argv[4]);
     filename.append(space);
 	filename.append(argv[5]);
+    debugfile.append(filename);
     filename.append(fileext);
+    debugfile.append(debugfileext);
     char *filechar = new char[filename.length() + 1];
 	strcpy(filechar, filename.c_str());
 	FILE *out = fopen(filechar, "w+");
     printf("File char is: %s\n", filechar);
+
+    char *debugfilechar = new char[debugfile.length() + 1];
+    strcpy(debugfilechar, debugfile.c_str());
+    FILE *debug = fopen(debugfilechar, "w+");
 
     int Nc;// = 6;
     int n;// = 16; // n-mers
@@ -838,7 +865,7 @@ int main(int argc, char **argv)
     phi_target = stod(argv[4]);
     seed = stoi(argv[5]);
 
-    double temp, U, dphi, dG, Utol, gam, phitot;
+    double temp, U, dphi, dG, Utol, tol, gam, phitot;
     int count, count_max, C;
     int N = n * Nc;
 
@@ -864,9 +891,9 @@ int main(int argc, char **argv)
         lengths[i] = lengths[i] / D;
     }
     double rad = 1.0 / D;
-    D = 1;
-    double E0 = 1;
-    double K = 2 * E0 * D * D;
+    D = 1.0;
+    double E0 = 1.0;
+    double K = 2.0 * E0 * D * D;
     double G = 1.4;
 
     // set spatial quantities
@@ -972,18 +999,43 @@ int main(int argc, char **argv)
     double * T = new double[Nc];
     int * Cn = new int[Nc];
 
-    count_max = 1e3;
+    count_max = 1e4;
     gam = 0;
     Utol = 1e-14;
-    dphi = 1e-2;
+    Ptol = 1e-7;
+    tol = 1e-7;
+    dphi = 1e-3;
     count = 0;
     C = 0;
     U = 0;
+    P = 0;
+
+    // Print initial states
+    fprintf(debug, "%d\n", Nc);
+    fprintf(debug, "%d\n", n);
+    fprintf(debug, "%d\n", N);
+    fprintf(debug, "%3.4f\n", mu);
+    fprintf(debug, "%03.16f\n", Lx);
+    fprintf(debug, "%03.16f\n", Ly);
+    fprintf(debug, "%03.20f\n", gam);
+    for (int j = 0; j < Nc; j++)
+	{
+		fprintf(debug, "%03.20f", Dn[j]); // this is Dn!!!
+		fprintf(debug, ", %03.20f", x[j]);
+		fprintf(debug, ", %03.20f", y[j]);
+        fprintf(debug, ", %03.20f", th[j]);
+        for (int k=0;k<n;k++) fprintf(debug, ", %03.20f", r_shape[j*n+k]);
+        for (int k=0;k<n;k++) fprintf(debug, ", %03.20f", th_shape[j*n+k]);
+        fprintf(debug, ", %d", Cn[j]);
+		fprintf(debug, "\n");
+	}
 
     // Compression jamming
-    while (U < Utol || U > 2 * Utol)
+    // while (P < Ptol || P > (1.0 + tol) * Ptol)
+    while (U < Utol || U > 2.0 * Utol)
     {
         if (U < Utol)
+        // if (P < Ptol)
         {
             dphi = fabs(dphi);
             // copy all inputs
@@ -1004,10 +1056,10 @@ int main(int argc, char **argv)
             copy(y_shape, y_shape + N, y_shape0);
             copy(r_shape, r_shape + N, r_shape0);
             copy(th_shape, th_shape + N, th_shape0);
-            U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax, ay, alph, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
-            P = bumpy_2D_stress(Nc, N, n, x, y, th, r_shape, th_shape, Fx, Fy, stress, K, R_eff, Dn, Lx, Ly, gam);
         }
-        else if (U > 2 * Utol && C >= (Nc - 1))
+        // else if (P > (1.0 + tol) * Ptol)
+        else if (U > 2 * Utol)
+        // else if (U > 2 * Utol && C >= (Nc - 1))
         {
             dphi = -fabs(dphi) / 2;
             // copy all inputs
@@ -1028,20 +1080,43 @@ int main(int argc, char **argv)
             copy(y_shape0, y_shape0 + N, y_shape);
             copy(r_shape0, r_shape0 + N, r_shape);
             copy(th_shape0, th_shape0 + N, th_shape);
-            U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax, ay, alph, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
-            P = bumpy_2D_stress(Nc, N, n, x, y, th, r_shape, th_shape, Fx, Fy, stress, K, R_eff, Dn, Lx, Ly, gam);
         }
+        U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax, ay, alph, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
+        P = bumpy_2D_stress(Nc, N, n, x, y, th, r_shape, th_shape, Fx, Fy, stress, K, R_eff, Dn, Lx, Ly, gam);
         temp = 0;
         count += 1;
         // get C
         C = bumpy_2D_shrjam_getC(Nc, N, n, x, y, th, r_shape, th_shape, K, R_eff, Dn, Lx, Ly, gam);
         for(int i = 0; i < Nc; i++) temp += m[i];
         phitot = temp / (Lx * Ly);
-        if (count % 1 == 0) printf("Step %d, phi=%1.7f, dphi=%e, C=%d, U/K/N=%e\n", count, phitot, dphi, C, U);
+        if (count % 1 == 0) printf("Step %d, phi=%1.7f, dphi=%e, C=%d, U/K/N=%e, P=%e\n", count, phitot, dphi, C, U, P);
         if (count > count_max) break;
     }
+
+    // print final compression jammed state
+    fprintf(out, "%d\n", Nc);
+    fprintf(out, "%d\n", n);
+    fprintf(out, "%d\n", N);
+    fprintf(out, "%3.4f\n", mu);
+    fprintf(out, "%03.16f\n", Lx);
+    fprintf(out, "%03.16f\n", Ly);
+    fprintf(out, "%03.20f\n", gam);
+    for (int j = 0; j < Nc; j++)
+	{
+		// fprintf(out, "%3d, ", j);
+		fprintf(out, "%03.20f", Dn[j]); // this is Dn!!!
+		fprintf(out, ", %03.20f", x[j]);
+		fprintf(out, ", %03.20f", y[j]);
+        fprintf(out, ", %03.20f", th[j]);
+        for (int k=0;k<n;k++) fprintf(out, ", %03.20f", r_shape[j*n+k]);
+        for (int k=0;k<n;k++) fprintf(out, ", %03.20f", th_shape[j*n+k]);
+        fprintf(out, ", %d", Cn[j]);
+		fprintf(out, "\n");
+	}
+    printf("\n");
     
     fclose(out);
+    fclose(debug);
 
     delete[] xval, yval, lengths;
     delete[] Dn0, R_eff0, m0, I0, x0, y0, th0, vx0, vy0, w0, ax_old0, ay_old0, alph_old0;
