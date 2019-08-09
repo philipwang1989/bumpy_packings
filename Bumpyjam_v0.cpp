@@ -1,7 +1,8 @@
-#include <cmath>
 #include <iostream>
 #include <random>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 
 using namespace std;
 
@@ -820,8 +821,17 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
 
 int main(int argc, char **argv)
 {
-    // TO COMPILE
-    // clang++ -std=c++11 -stdlib=libc++ Bumpyjam_v0.cpp 
+    // TO COMPILE (MAC or LINUX?)
+    // clang++ -std=c++14 -stdlib=libc++ Bumpyjam_v0.cpp 
+    // TO COMPILE (WINDOWS w/ VS_community 2017+)
+    // cl -EHsc -std:c++14 Bumpyjam_v0.cpp 
+    // TO COMPILE (WINDOWS w/ clang - not perfect, only works for -m32)
+    // clang++ -std=c++14 -m32 -stdlib=libc++ Bumpyjam_v0.cpp
+
+    // TO RUN (in the pseudo-sense...)
+    // ./compiled_program Nc n /mu phi_target seed
+    // you can just do the following:
+    // ./compiled_program 6 16 1 1 1
 
     //Save output file
     string space = "_";
@@ -830,8 +840,8 @@ int main(int argc, char **argv)
     string debugfile = "";
     string debugfileext = ".xy";
 
-    //string filename = "E:/Dropbox/Yale/C++/ShearJam/output_"; // Windows
-    string filename = "/Users/philipwang/Dropbox/Yale/C++/Bumpy/output_"; // Mac
+    string filename = "E:/Dropbox/Yale/C++/Bumpy/output_"; // Windows
+    // string filename = "/Users/philipwang/Dropbox/Yale/C++/Bumpy/output_"; // Mac
     filename.append(argv[1]);
 	filename.append(space);
 	filename.append(argv[2]);
@@ -859,11 +869,11 @@ int main(int argc, char **argv)
     double phi_target;// = 1.00;
     int seed;// = 1;
 
-    Nc = stoi(argv[1]);
-    n = stoi(argv[2]);
-    mu = stod(argv[3]);
-    phi_target = stod(argv[4]);
-    seed = stoi(argv[5]);
+    Nc = atoi(argv[1]);
+    n = atoi(argv[2]);
+    mu = atof(argv[3]);
+    phi_target = atof(argv[4]);
+    seed = atoi(argv[5]);
 
     double temp, U, dphi, dG, Utol, tol, gam, phitot;
     int count, count_max, C;
