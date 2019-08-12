@@ -382,16 +382,16 @@ void NonContactZeroing(int N, double * vx, int * Cn)
 }
 
 // Calculate Ek
-double getEk(int N, double * m, double * vx)
-{
-    double K = 0;
-    for (int i = 0; i < N; i++)
-    {
-        K += m[i] * vx[i] * vx[i];
-    }
-    K = K / 2.0;
-    return K;
-}
+// double getEk(int N, double * m, double * vx)
+// {
+//     double K = 0;
+//     for (int i = 0; i < N; i++)
+//     {
+//         K += m[i] * vx[i] * vx[i];
+//     }
+//     K = K / 2.0;
+//     return K;
+// }
 
 // Calculate max Ek
 double getEk(int N, double * m, double * I, double * vx, double * vy, double * w)
@@ -698,8 +698,8 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
     // FIRE COEFF. //
     int nfiremin, cut;
     double finc, fdec, astart, a, fa, dtmax, P;
-    bool fire = true;
-    // bool fire = false;
+    // bool fire = true;
+    bool fire = false;
     nfiremin = 50;
     finc = 1.1;
     fdec = 0.5;
@@ -776,10 +776,10 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
                     vx[i] = 0.0;
                     vy[i] = 0.0;
                     w[i] = 0.0;
-                    cut = nt;
-                    dt = dt * fdec;
-                    a = astart;
                 }
+                cut = nt;
+                dt = dt * fdec;
+                a = astart;
             }
             else if (P >= 0 && nt - cut > nfiremin)
             {
@@ -804,7 +804,7 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
             NonContactZeroing(Nc, w, Cn); 
         }
         
-        if (nt > 0 && Kmax < 1e-28) 
+        if (nt > 0 && Kmax < 1e-24) 
         {
             // printf("Break by Ek=%e at %ld.\n",Kmax,nt);
             // print("\n");
@@ -840,8 +840,8 @@ int main(int argc, char **argv)
     string debugfile = "";
     string debugfileext = ".xy";
 
-    string filename = "E:/Dropbox/Yale/C++/Bumpy/output_"; // Windows
-    // string filename = "/Users/philipwang/Dropbox/Yale/C++/Bumpy/output_"; // Mac
+    // string filename = "E:/Dropbox/Yale/C++/Bumpy/output_"; // Windows
+    string filename = "/Users/philipwang/Dropbox/Yale/C++/Bumpy/output_"; // Mac
     filename.append(argv[1]);
 	filename.append(space);
 	filename.append(argv[2]);
@@ -972,8 +972,8 @@ int main(int argc, char **argv)
     double * stress = new double [4];
     double P, Ptol;
 
-    for(int i = 0; i < Nc / 2; i++) R_eff[i] = D / 0.1;
-	for(int i = Nc / 2; i < Nc; i++) R_eff[i] = G / 0.1;
+    for(int i = 0; i < Nc / 2; i++) R_eff[i] = D / 1.0;
+	for(int i = Nc / 2; i < Nc; i++) R_eff[i] = G / 1.0;
     for(int i = 0; i < Nc / 2; i++) Dn[i] = D; // small
 	for(int i = Nc / 2; i < Nc; i++) Dn[i] = G; // big
 
@@ -984,6 +984,8 @@ int main(int argc, char **argv)
 		for(int i = 0; i < Nc; i++) x[i] = distribution(generator);
         for(int i = 0; i < Nc; i++) y[i] = distribution(generator);
 	}while(anytouch(Nc, x, y, R_eff, Lx, Ly));//re-seed until no particles touch
+
+    printf("Particles ready!\n");
 
     nmersBuild(n, Nc, G, xval, yval, x_shape, y_shape, r_shape, th_shape);
     nmersProperty(n, Nc, MCpoints, xlist, ylist, x_mc, y_mc, in_mc, m, I, x_shape, y_shape, G/2.0, D/2.0);
@@ -1002,6 +1004,10 @@ int main(int argc, char **argv)
         R_eff[i] = temp + Dn[i] / 2;
     }
 
+    // update dt
+    double m_mean = average(Nc, m);
+    dt = 2.0 * pi * sqrt(m_mean / K) / N_per_coll;
+
     // First print out a file to plot the unjam states
 
     double * Fx = new double[Nc];
@@ -1009,7 +1015,7 @@ int main(int argc, char **argv)
     double * T = new double[Nc];
     int * Cn = new int[Nc];
 
-    count_max = 1e4;
+    count_max = 1e6;
     gam = 0;
     Utol = 1e-14;
     Ptol = 1e-7;
@@ -1019,6 +1025,8 @@ int main(int argc, char **argv)
     C = 0;
     U = 0;
     P = 0;
+
+    double Kmax = 0;
 
     // Print initial states
     fprintf(debug, "%d\n", Nc);
@@ -1040,8 +1048,11 @@ int main(int argc, char **argv)
 		fprintf(debug, "\n");
 	}
 
+    fclose(debug);
+
     // Compression jamming
     // while (P < Ptol || P > (1.0 + tol) * Ptol)
+    // need to fix bug here
     while (U < Utol || U > 2.0 * Utol)
     {
         if (U < Utol)
@@ -1068,8 +1079,8 @@ int main(int argc, char **argv)
             copy(th_shape, th_shape + N, th_shape0);
         }
         // else if (P > (1.0 + tol) * Ptol)
-        else if (U > 2 * Utol)
-        // else if (U > 2 * Utol && C >= (Nc - 1))
+        // else if (U > 2 * Utol)
+        else if (U > 2 * Utol && C >= (2 * Nc - 1))
         {
             dphi = -fabs(dphi) / 2;
             // copy all inputs
@@ -1093,15 +1104,18 @@ int main(int argc, char **argv)
         }
         U = bumpy_2D_comp_VV(Nc, N, n, gam, Dn, r_shape, th_shape, m, I, R_eff, x, y, th, Fx, Fy, T, Cn, vx, vy, w, ax, ay, alph, ax_old, ay_old, alph_old, dt, Nt, K, Lx, Ly, Utol, dphi);
         P = bumpy_2D_stress(Nc, N, n, x, y, th, r_shape, th_shape, Fx, Fy, stress, K, R_eff, Dn, Lx, Ly, gam);
+        Kmax = getEk(Nc, m, I, vx, vy, w);
         temp = 0;
         count += 1;
         // get C
         C = bumpy_2D_shrjam_getC(Nc, N, n, x, y, th, r_shape, th_shape, K, R_eff, Dn, Lx, Ly, gam);
         for(int i = 0; i < Nc; i++) temp += m[i];
         phitot = temp / (Lx * Ly);
-        if (count % 1 == 0) printf("Step %d, phi=%1.7f, dphi=%e, C=%d, U/K/N=%e, P=%e\n", count, phitot, dphi, C, U, P);
+        if (count % 10 == 0) printf("Step %d, phi=%1.7f, dphi=%e, C=%d, U/K/N=%e, P=%e\n", count, phitot, dphi, C, U, P);
         if (count > count_max) break;
     }
+
+    printf("U/K/N=%e, Kmax=%e\n", U, Kmax);
 
     // print final compression jammed state
     fprintf(out, "%d\n", Nc);
@@ -1126,7 +1140,6 @@ int main(int argc, char **argv)
     printf("\n");
     
     fclose(out);
-    fclose(debug);
 
     delete[] xval, yval, lengths;
     delete[] Dn0, R_eff0, m0, I0, x0, y0, th0, vx0, vy0, w0, ax_old0, ay_old0, alph_old0;
