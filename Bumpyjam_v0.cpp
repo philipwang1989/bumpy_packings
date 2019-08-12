@@ -698,8 +698,8 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
     // FIRE COEFF. //
     int nfiremin, cut;
     double finc, fdec, astart, a, fa, dtmax, P;
-    // bool fire = true;
-    bool fire = false;
+    bool fire = true;
+    // bool fire = false;
     nfiremin = 50;
     finc = 1.1;
     fdec = 0.5;
@@ -709,7 +709,7 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
     dtmax = 10.0 * dt;
     cut = 1;
 
-    double B = 0.1;
+    double B = 1.0;
     double Kmax;
 
     nt = 0;
@@ -804,7 +804,7 @@ double * th, double * Fx, double * Fy, double * T, int * Cn, double * vx, double
             NonContactZeroing(Nc, w, Cn); 
         }
         
-        if (nt > 0 && Kmax < 1e-24) 
+        if (nt > 0 && Kmax < 1e-26) 
         {
             // printf("Break by Ek=%e at %ld.\n",Kmax,nt);
             // print("\n");
@@ -907,8 +907,8 @@ int main(int argc, char **argv)
     double G = 1.4;
 
     // set spatial quantities
-    double Lx = round(5 * G * sqrt(Nc) * (D + rad));
-    double Ly = round(5 * G * sqrt(Nc) * (D + rad));
+    double Lx = round(10.0 * G * sqrt(Nc) * (D + rad));
+    double Ly = round(10.0 * G * sqrt(Nc) * (D + rad));
 
     int long Nt = 1e6;
     double N_per_coll = 100.0;
@@ -1020,7 +1020,7 @@ int main(int argc, char **argv)
     Utol = 1e-14;
     Ptol = 1e-7;
     tol = 1e-7;
-    dphi = 1e-3;
+    dphi = 1e-4;
     count = 0;
     C = 0;
     U = 0;
@@ -1079,8 +1079,8 @@ int main(int argc, char **argv)
             copy(th_shape, th_shape + N, th_shape0);
         }
         // else if (P > (1.0 + tol) * Ptol)
-        // else if (U > 2 * Utol)
-        else if (U > 2 * Utol && C >= (2 * Nc - 1))
+        else if (U > 2 * Utol)
+        // else if (U > 2 * Utol && C >= (2 * Nc - 1))
         {
             dphi = -fabs(dphi) / 2;
             // copy all inputs
@@ -1111,8 +1111,10 @@ int main(int argc, char **argv)
         C = bumpy_2D_shrjam_getC(Nc, N, n, x, y, th, r_shape, th_shape, K, R_eff, Dn, Lx, Ly, gam);
         for(int i = 0; i < Nc; i++) temp += m[i];
         phitot = temp / (Lx * Ly);
-        if (count % 10 == 0) printf("Step %d, phi=%1.7f, dphi=%e, C=%d, U/K/N=%e, P=%e\n", count, phitot, dphi, C, U, P);
+        if (count % 100 == 0) printf("Step %d, phi=%1.7f, dphi=%e, C=%d, U/K/N=%e, P=%e\n", count, phitot, dphi, C, U, P);
         if (count > count_max) break;
+        m_mean = average(Nc, m);
+        dt = 2.0 * pi * sqrt(m_mean / K) / N_per_coll;
     }
 
     printf("U/K/N=%e, Kmax=%e\n", U, Kmax);
